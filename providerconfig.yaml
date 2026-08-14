@@ -1,0 +1,11 @@
+apiVersion: dynatrace.crossplane.io/v1beta1
+kind: ProviderConfig
+metadata:
+  name: default
+spec:
+  credentials:
+    source: Secret
+    secretRef:
+      name: dynatrace-creds
+      namespace: crossplane-system
+      key: credentials

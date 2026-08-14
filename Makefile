@@ -1,8 +1,8 @@
 # ====================================================================================
 # Setup Project
 
-PROJECT_NAME ?= upjet-provider-template
-PROJECT_REPO ?= github.com/crossplane/$(PROJECT_NAME)
+PROJECT_NAME ?= provider-dynatrace-iam
+PROJECT_REPO ?= github.com/vikreinok/$(PROJECT_NAME)
 
 export TERRAFORM_VERSION ?= 1.5.7
 
@@ -10,13 +10,13 @@ export TERRAFORM_VERSION ?= 1.5.7
 # licensed under BSL, which is not permitted.
 TERRAFORM_VERSION_VALID := $(shell [ "$(TERRAFORM_VERSION)" = "`printf "$(TERRAFORM_VERSION)\n1.6" | sort -V | head -n1`" ] && echo 1 || echo 0)
 
-export TERRAFORM_PROVIDER_SOURCE ?= hashicorp/null
-export TERRAFORM_PROVIDER_REPO ?= https://github.com/hashicorp/terraform-provider-null
-export TERRAFORM_PROVIDER_VERSION ?= 3.2.4
-export TERRAFORM_PROVIDER_DOWNLOAD_NAME ?= terraform-provider-null
-export TERRAFORM_PROVIDER_DOWNLOAD_URL_PREFIX ?= https://releases.hashicorp.com/$(TERRAFORM_PROVIDER_DOWNLOAD_NAME)/$(TERRAFORM_PROVIDER_VERSION)
-export TERRAFORM_NATIVE_PROVIDER_BINARY ?= terraform-provider-null_v3.2.4_x5
-export TERRAFORM_DOCS_PATH ?= docs/resources
+export TERRAFORM_PROVIDER_SOURCE ?= dynatrace-oss/dynatrace
+export TERRAFORM_PROVIDER_REPO ?= https://github.com/dynatrace-oss/terraform-provider-dynatrace
+export TERRAFORM_PROVIDER_VERSION ?= 1.102.0
+export TERRAFORM_PROVIDER_DOWNLOAD_NAME ?= terraform-provider-dynatrace
+export TERRAFORM_PROVIDER_DOWNLOAD_URL_PREFIX ?= https://github.com/dynatrace-oss/terraform-provider-dynatrace/releases/download/v$(TERRAFORM_PROVIDER_VERSION)
+export TERRAFORM_NATIVE_PROVIDER_BINARY ?= terraform-provider-dynatrace_v$(TERRAFORM_PROVIDER_VERSION)
+export TERRAFORM_DOCS_PATH ?= docs
 
 
 PLATFORMS ?= linux_amd64 linux_arm64
@@ -59,23 +59,23 @@ UPTEST_VERSION = v2.2.0
 CRDDIFF_VERSION = v0.12.1
 CROSSPLANE_CLI_VERSION = v2.2.1
 # for e2e testing
-CROSSPLANE_VERSION = 2.2.1
+CROSSPLANE_VERSION = 2.3.3
 -include build/makelib/k8s_tools.mk
 
 # ====================================================================================
 # Setup Images
 
-REGISTRY_ORGS ?= ghcr.io/crossplane-contrib
+REGISTRY_ORGS ?= ghcr.io/vikreinok
 IMAGES = $(PROJECT_NAME)
 -include build/makelib/imagelight.mk
 
 # ====================================================================================
 # Setup XPKG
 
-XPKG_REG_ORGS ?= ghcr.io/crossplane-contrib
+XPKG_REG_ORGS ?= ghcr.io/vikreinok
 # NOTE(hasheddan): skip promoting on xpkg.crossplane.io as channel tags are
 # inferred.
-XPKG_REG_ORGS_NO_PROMOTE ?= ghcr.io/crossplane-contrib
+XPKG_REG_ORGS_NO_PROMOTE ?= ghcr.io/vikreinok
 XPKGS = $(PROJECT_NAME)
 -include build/makelib/xpkg.mk
 
@@ -95,7 +95,7 @@ fallthrough: submodules
 
 # NOTE(hasheddan): we force image building to happen prior to xpkg build so that
 # we ensure image is present in daemon.
-xpkg.build.upjet-provider-template: do.build.images
+xpkg.build.$(PROJECT_NAME): do.build.images
 
 # NOTE(hasheddan): we ensure up is installed prior to running platform-specific
 # build steps in parallel to avoid encountering an installation race condition.

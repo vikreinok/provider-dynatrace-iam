@@ -1,0 +1,14 @@
+apiVersion: iam.dynatrace.m.crossplane.io/v1alpha1
+kind: Permission
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/permission
+  labels:
+    testing.upbound.io/example-name: perm_a
+  name: perm-a
+  namespace: crossplane-system
+spec:
+  forProvider:
+    account: 023733f0-86d8-47d1-88bd-7f5cc2e22eb8
+    group: 74ec0a82-8010-4f11-8579-b29a5ba865f0
+    name: tenant-viewer

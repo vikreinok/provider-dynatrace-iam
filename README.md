@@ -1,42 +1,41 @@
-# Provider Template
+# Provider Dynatrace IAM
 
-`upjet-provider-template` is a [Crossplane](https://crossplane.io/) provider
-template that is built using [Upjet](https://github.com/crossplane/upjet) code
-generation tools and exposes XRM-conformant managed resources for the Template
-API.
+`provider-dynatrace-iam` is a [Crossplane](https://crossplane.io/) provider that is built using [Upjet](https://github.com/crossplane/upjet) code generation tools and exposes XRM-conformant managed resources for the Dynatrace IAM API.
 
-## Getting Started
+## Features
 
-This template serves as a starting point for generating a new [Crossplane Provider](https://docs.crossplane.io/latest/packages/providers/) using the [`upjet`](https://github.com/crossplane/upjet) tooling. Please follow the guide linked below to generate a new Provider:
+- **IAM Resources**: IAM Groups, Policies, Policy Bindings (v1 & v2), Policy Boundaries, Permissions, Service Users, and Users.
+- **Management Zone Permissions**: `Permission` in `mgmz.dynatrace.crossplane.io`.
+- **Policy & Users**: Policy bindings and Users in `policy.dynatrace.crossplane.io` and `user.dynatrace.crossplane.io`.
+- **Custom CostCenter Controller**: Direct account-level Cost Center management.
+- **Both Cluster-Scoped and Namespaced APIs** supported.
+- **SafeStart enabled**: Dynamically gates controllers based on CRDs present in the cluster.
 
-https://github.com/crossplane/upjet/blob/main/docs/generating-a-provider.md
+## Getting Started & Testing
+
+Follow the comprehensive testing and local development guides:
+- [Local Release Guide](local_release.md)
+- [How to Test Guide](how_to_test.md)
 
 ## Developing
 
 Run code-generation pipeline:
 ```console
-go run cmd/generator/main.go "$PWD"
+export PATH=$PATH:$HOME/go/bin
+unset GOROOT
+export GOTOOLCHAIN=local
+make generate
 ```
 
-Run against a Kubernetes cluster:
-
+Run against a local Kubernetes cluster:
 ```console
+export PATH=$PATH:$HOME/go/bin
+unset GOROOT
+export GOTOOLCHAIN=local
 make run
 ```
 
-Build, push, and install:
-
+Build local package:
 ```console
-make all
+./scripts/build_local.sh -v v0.1.0 -p linux_amd64
 ```
-
-Build binary:
-
-```console
-make build
-```
-
-## Report a Bug
-
-For filing bugs, suggesting improvements, or requesting new features, please
-open an [issue](https://github.com/crossplane/upjet-provider-template/issues).

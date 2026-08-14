@@ -1,0 +1,68 @@
+apiVersion: iam.dynatrace.m.crossplane.io/v1alpha1
+kind: PolicyBindings
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/policybindings
+  labels:
+    testing.upbound.io/example-name: env_bindings
+  name: env-bindings
+  namespace: crossplane-system
+spec:
+  forProvider:
+    environment: siz654##
+    group: ${dynatrace_iam_group.my_group.id}
+    policies:
+    - ${dynatrace_iam_policy.env_policy.id}
+
+---
+
+apiVersion: iam.dynatrace.m.crossplane.io/v1alpha1
+kind: Group
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/policybindings
+  labels:
+    testing.upbound.io/example-name: my_group
+  name: my-group
+  namespace: crossplane-system
+spec:
+  forProvider:
+    name: my_group
+    permissions:
+    - {}
+
+---
+
+apiVersion: iam.dynatrace.m.crossplane.io/v1alpha1
+kind: Policy
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/policybindings
+  labels:
+    testing.upbound.io/example-name: acc_policy
+  name: acc-policy
+  namespace: crossplane-system
+spec:
+  forProvider:
+    account: '########-####-####-####-############'
+    name: my_policy_valid_for_all_environments_in_this_account
+    statementQuery: ALLOW settings:objects:read, settings:schemas:read WHERE settings:schemaId
+      = "string";
+
+---
+
+apiVersion: iam.dynatrace.m.crossplane.io/v1alpha1
+kind: Policy
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/policybindings
+  labels:
+    testing.upbound.io/example-name: env_policy
+  name: env-policy
+  namespace: crossplane-system
+spec:
+  forProvider:
+    environment: siz654##
+    name: my_policy_valid_for_environment_siz654##
+    statementQuery: ALLOW settings:objects:read, settings:schemas:read WHERE settings:schemaId
+      = "string";

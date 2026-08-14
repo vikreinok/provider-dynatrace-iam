@@ -1,0 +1,14 @@
+apiVersion: iam.dynatrace.crossplane.io/v1alpha1
+kind: ServiceUser
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/serviceuser
+  labels:
+    testing.upbound.io/example-name: test_service_user
+  name: test-service-user
+spec:
+  forProvider:
+    description: a service user for testing purposes
+    groups:
+    - ${data.dynatrace_iam_group.Restricted.id}
+    name: test service user

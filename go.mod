@@ -1,4 +1,4 @@
-module github.com/crossplane/upjet-provider-template
+module github.com/vikreinok/provider-dynatrace-iam
 
 go 1.26.5
 
@@ -12,6 +12,7 @@ require (
 	github.com/crossplane/crossplane/apis/v2 v2.3.3
 	github.com/crossplane/upjet/v2 v2.4.1-0.20260728103920-4f6e6e10dff2
 	github.com/pkg/errors v0.9.1
+	golang.org/x/oauth2 v0.36.0
 	google.golang.org/grpc v1.82.1
 	k8s.io/api v0.35.3
 	k8s.io/apiextensions-apiserver v0.35.3
@@ -133,7 +134,6 @@ require (
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.55.0 // indirect
-	golang.org/x/oauth2 v0.36.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.45.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260409153401-be6f6cb8b1fa // indirect

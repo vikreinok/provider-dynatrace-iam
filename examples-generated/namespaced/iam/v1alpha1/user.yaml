@@ -1,0 +1,14 @@
+apiVersion: iam.dynatrace.m.crossplane.io/v1alpha1
+kind: User
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/user
+  labels:
+    testing.upbound.io/example-name: john_doe_gmail_com
+  name: john-doe-gmail-com
+  namespace: crossplane-system
+spec:
+  forProvider:
+    email: john.doe@gmail.com
+    groups:
+    - ${data.dynatrace_iam_group.Restricted.id}

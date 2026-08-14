@@ -1,0 +1,15 @@
+apiVersion: iam.dynatrace.m.crossplane.io/v1alpha1
+kind: Policy
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/policy
+  labels:
+    testing.upbound.io/example-name: policy
+  name: policy
+  namespace: crossplane-system
+spec:
+  forProvider:
+    environment: siz654##
+    name: my_policy_valid_for_environment_siz654##
+    statementQuery: ALLOW settings:objects:read, settings:schemas:read WHERE settings:schemaId
+      = "string";

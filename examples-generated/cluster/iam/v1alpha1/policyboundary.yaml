@@ -1,0 +1,66 @@
+apiVersion: iam.dynatrace.crossplane.io/v1alpha1
+kind: PolicyBoundary
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/policyboundary
+  labels:
+    testing.upbound.io/example-name: this
+  name: this
+spec:
+  forProvider:
+    name: Foo
+    query: environment:management-zone startsWith "[Foo]";
+
+---
+
+apiVersion: iam.dynatrace.crossplane.io/v1alpha1
+kind: Group
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/policyboundary
+  labels:
+    testing.upbound.io/example-name: this
+  name: this
+spec:
+  forProvider:
+    name: my-group-name
+
+---
+
+apiVersion: iam.dynatrace.crossplane.io/v1alpha1
+kind: Policy
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/policyboundary
+  labels:
+    testing.upbound.io/example-name: this
+  name: this
+spec:
+  forProvider:
+    account: '########-####-####-####-############'
+    name: this
+    statementQuery: ALLOW settings:objects:read, settings:schemas:read WHERE settings:schemaId
+      = "#########";
+
+---
+
+apiVersion: iam.dynatrace.crossplane.io/v1alpha1
+kind: PolicyBindingsV2
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/policyboundary
+  labels:
+    testing.upbound.io/example-name: this
+  name: this
+spec:
+  forProvider:
+    environment: '########'
+    groupSelector:
+      matchLabels:
+        testing.upbound.io/example-name: this
+    policy:
+    - boundariesRefs:
+      - name: this
+      idSelector:
+        matchLabels:
+          testing.upbound.io/example-name: this

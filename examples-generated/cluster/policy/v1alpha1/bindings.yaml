@@ -1,0 +1,62 @@
+apiVersion: policy.dynatrace.crossplane.io/v1alpha1
+kind: Bindings
+metadata:
+  annotations:
+    meta.upbound.io/example-id: policy/v1alpha1/bindings
+  labels:
+    testing.upbound.io/example-name: env_bindings
+  name: env-bindings
+spec:
+  forProvider:
+    environment: '########-####-####-####-############'
+    group: ${dynatrace_user_group.my_group.id}
+    policies:
+    - ${dynatrace_policy.env_policy.id}
+
+---
+
+apiVersion: policy.dynatrace.crossplane.io/v1alpha1
+kind: Policy
+metadata:
+  annotations:
+    meta.upbound.io/example-id: policy/v1alpha1/bindings
+  labels:
+    testing.upbound.io/example-name: cluster_policy
+  name: cluster-policy
+spec:
+  forProvider:
+    cluster: '########-####-####-####-############'
+    name: my_policy_valid_for_all_environments_in_this_cluster
+    statementQuery: ALLOW settings:objects:read, settings:schemas:read WHERE settings:schemaId
+      = "string";
+
+---
+
+apiVersion: policy.dynatrace.crossplane.io/v1alpha1
+kind: Policy
+metadata:
+  annotations:
+    meta.upbound.io/example-id: policy/v1alpha1/bindings
+  labels:
+    testing.upbound.io/example-name: env_policy
+  name: env-policy
+spec:
+  forProvider:
+    environment: '########-####-####-####-############'
+    name: my_policy_valid_for_environment_########-####-####-####-############
+    statementQuery: ALLOW settings:objects:read, settings:schemas:read WHERE settings:schemaId
+      = "string";
+
+---
+
+apiVersion: user.dynatrace.crossplane.io/v1alpha1
+kind: Group
+metadata:
+  annotations:
+    meta.upbound.io/example-id: policy/v1alpha1/bindings
+  labels:
+    testing.upbound.io/example-name: my_group
+  name: my-group
+spec:
+  forProvider:
+    name: my_group

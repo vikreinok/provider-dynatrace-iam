@@ -1,0 +1,11 @@
+apiVersion: iam.dynatrace.crossplane.io/v1alpha1
+kind: Group
+metadata:
+  annotations:
+    meta.upbound.io/example-id: iam/v1alpha1/group
+  labels:
+    testing.upbound.io/example-name: Restricted
+  name: restricted
+spec:
+  forProvider:
+    name: Restricted

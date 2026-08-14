@@ -7,17 +7,19 @@ import (
 // ExternalNameConfigs contains all external name configurations for this
 // provider.
 var ExternalNameConfigs = map[string]config.ExternalName{
-	// Import requires using a randomly generated ID from provider: nl-2e21sda
-	"null_resource": idWithStub(),
-}
-
-func idWithStub() config.ExternalName {
-	e := config.IdentifierFromProvider
-	e.GetExternalNameFn = func(tfstate map[string]any) (string, error) {
-		en, _ := config.IDAsExternalName(tfstate)
-		return en, nil
-	}
-	return e
+	"dynatrace_iam_group":              config.IdentifierFromProvider,
+	"dynatrace_iam_permission":         config.IdentifierFromProvider,
+	"dynatrace_iam_policy":             config.IdentifierFromProvider,
+	"dynatrace_iam_policy_bindings":    config.IdentifierFromProvider,
+	"dynatrace_iam_policy_bindings_v2": config.IdentifierFromProvider,
+	"dynatrace_iam_policy_boundary":    config.IdentifierFromProvider,
+	"dynatrace_iam_service_user":       config.IdentifierFromProvider,
+	"dynatrace_iam_user":               config.IdentifierFromProvider,
+	"dynatrace_mgmz_permission":        config.IdentifierFromProvider,
+	"dynatrace_policy":                 config.IdentifierFromProvider,
+	"dynatrace_policy_bindings":        config.IdentifierFromProvider,
+	"dynatrace_user":                   config.IdentifierFromProvider,
+	"dynatrace_user_group":             config.IdentifierFromProvider,
 }
 
 // ExternalNameConfigurations applies all external name configs listed in the
@@ -27,6 +29,8 @@ func ExternalNameConfigurations() config.ResourceOption {
 	return func(r *config.Resource) {
 		if e, ok := ExternalNameConfigs[r.Name]; ok {
 			r.ExternalName = e
+		} else {
+			r.ExternalName = config.IdentifierFromProvider
 		}
 	}
 }

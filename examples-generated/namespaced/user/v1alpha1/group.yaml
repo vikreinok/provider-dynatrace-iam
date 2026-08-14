@@ -1,0 +1,105 @@
+apiVersion: user.dynatrace.m.crossplane.io/v1alpha1
+kind: Group
+metadata:
+  annotations:
+    meta.upbound.io/example-id: user/v1alpha1/group
+  labels:
+    testing.upbound.io/example-name: terraform
+  name: terraform
+  namespace: crossplane-system
+spec:
+  forProvider:
+    ldapGroups:
+    - Anonymous
+    name: Anonymous
+
+---
+
+apiVersion: policy.dynatrace.m.crossplane.io/v1alpha1
+kind: Policy
+metadata:
+  annotations:
+    meta.upbound.io/example-id: user/v1alpha1/group
+  labels:
+    testing.upbound.io/example-name: terraform_cluster
+  name: terraform-cluster
+  namespace: crossplane-system
+spec:
+  forProvider:
+    cluster: ${var.cluster}
+    name: terraform_cluster
+    statementQuery: ALLOW settings:objects:read, settings:schemas:read WHERE settings:schemaId
+      = "terraform-cluster";
+
+---
+
+apiVersion: policy.dynatrace.m.crossplane.io/v1alpha1
+kind: Policy
+metadata:
+  annotations:
+    meta.upbound.io/example-id: user/v1alpha1/group
+  labels:
+    testing.upbound.io/example-name: terraform_env
+  name: terraform-env
+  namespace: crossplane-system
+spec:
+  forProvider:
+    environment: ${var.environment}
+    name: terraform_env
+    statementQuery: ALLOW environment:roles:viewer;
+
+---
+
+apiVersion: policy.dynatrace.m.crossplane.io/v1alpha1
+kind: Bindings
+metadata:
+  annotations:
+    meta.upbound.io/example-id: user/v1alpha1/group
+  labels:
+    testing.upbound.io/example-name: terraform_cluster_binding
+  name: terraform-cluster-binding
+  namespace: crossplane-system
+spec:
+  forProvider:
+    cluster: ${var.cluster}
+    group: ${dynatrace_user_group.terraform.id}
+    policies:
+    - ${dynatrace_policy.terraform_cluster.id}
+
+---
+
+apiVersion: policy.dynatrace.m.crossplane.io/v1alpha1
+kind: Bindings
+metadata:
+  annotations:
+    meta.upbound.io/example-id: user/v1alpha1/group
+  labels:
+    testing.upbound.io/example-name: terraform_env_binding
+  name: terraform-env-binding
+  namespace: crossplane-system
+spec:
+  forProvider:
+    environment: ${var.environment}
+    group: ${dynatrace_user_group.terraform.id}
+    policies:
+    - ${dynatrace_policy.terraform_env.id}
+
+---
+
+apiVersion: user.dynatrace.m.crossplane.io/v1alpha1
+kind: User
+metadata:
+  annotations:
+    meta.upbound.io/example-id: user/v1alpha1/group
+  labels:
+    testing.upbound.io/example-name: terraform
+  name: terraform
+  namespace: crossplane-system
+spec:
+  forProvider:
+    email: me@example.com
+    firstName: John
+    groups:
+    - ${dynatrace_user_group.terraform.id}
+    lastName: Doe
+    userName: me@example.com
