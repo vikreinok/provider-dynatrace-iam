@@ -53,7 +53,7 @@ func Setup(mgr ctrl.Manager, o tjcontroller.Options) error {
 
 	r := managed.NewReconciler(mgr,
 		resource.ManagedKind(v1alpha1.CostCenter_GroupVersionKind),
-		managed.WithExternalConnecter(&connector{
+		managed.WithExternalConnector(&connector{
 			kube:         mgr.GetClient(),
 			newServiceFn: newService,
 		}),
@@ -96,18 +96,9 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 		return nil, errors.Wrap(err, "cannot unmarshal credentials")
 	}
 
-	accountID := creds["iam_account_id"]
-	if accountID == "" {
-		accountID = creds["dt_account_id"]
-	}
-	clientID := creds["iam_client_id"]
-	if clientID == "" {
-		clientID = creds["dt_client_id"]
-	}
-	clientSecret := creds["iam_client_secret"]
-	if clientSecret == "" {
-		clientSecret = creds["dt_client_secret"]
-	}
+	accountID := firstNonEmpty(creds["iam_account_id"], creds["dt_account_id"])
+	clientID := firstNonEmpty(creds["iam_client_id"], creds["dt_client_id"])
+	clientSecret := firstNonEmpty(creds["iam_client_secret"], creds["dt_client_secret"])
 
 	svc, err := c.newServiceFn(ctx, clientID, clientSecret, accountID)
 	if err != nil {
@@ -115,6 +106,15 @@ func (c *connector) Connect(ctx context.Context, mg resource.Managed) (managed.E
 	}
 
 	return &external{kube: c.kube, service: svc}, nil
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
 }
 
 type external struct {
@@ -128,42 +128,65 @@ func (e *external) Observe(ctx context.Context, mg resource.Managed) (managed.Ex
 		return managed.ExternalObservation{}, errors.New(errNotCostCenter)
 	}
 
-	key := meta.GetExternalName(cr)
-	targetKey := key
-	if cr.Spec.ForProvider.Key != nil && *cr.Spec.ForProvider.Key != "" {
-		targetKey = *cr.Spec.ForProvider.Key
-	}
-
-	if key == "" && targetKey == "" {
+	targetKey := getTargetKey(cr)
+	if targetKey == "" {
 		return managed.ExternalObservation{ResourceExists: false}, nil
 	}
 
-	list, err := e.service.List(ctx)
-	if err != nil {
+	matchedItem, found, err := e.findItem(ctx, targetKey)
+	if err != nil || !found {
+		return managed.ExternalObservation{ResourceExists: false}, err
+	}
+
+	if err := e.syncExternalName(ctx, cr, matchedItem.Key); err != nil {
 		return managed.ExternalObservation{}, err
 	}
 
-	for _, item := range list {
-		if (key != "" && item.Key == key) || (targetKey != "" && item.Key == targetKey) {
-			if meta.GetExternalName(cr) != item.Key {
-				meta.SetExternalName(cr, item.Key)
-				if err := e.kube.Update(ctx, cr); err != nil {
-					return managed.ExternalObservation{}, errors.Wrap(err, "cannot update external-name annotation")
-				}
-			}
-			cr.Status.AtProvider.Key = &item.Key
-			cr.Status.AtProvider.Value = &item.Value
-			cr.Status.AtProvider.ID = &item.Key
-			cr.SetConditions(xpv1.Available())
-			return managed.ExternalObservation{
-				ResourceExists:    true,
-				ResourceUpToDate:  true,
-				ConnectionDetails: nil,
-			}, nil
-		}
+	populateStatus(cr, matchedItem)
+	return managed.ExternalObservation{
+		ResourceExists:    true,
+		ResourceUpToDate:  true,
+		ConnectionDetails: nil,
+	}, nil
+}
+
+func getTargetKey(cr *v1alpha1.CostCenter) string {
+	if key := meta.GetExternalName(cr); key != "" {
+		return key
+	}
+	if cr.Spec.ForProvider.Key != nil {
+		return *cr.Spec.ForProvider.Key
+	}
+	return ""
+}
+
+func (e *external) findItem(ctx context.Context, targetKey string) (costCenterItem, bool, error) {
+	list, err := e.service.List(ctx)
+	if err != nil {
+		return costCenterItem{}, false, err
 	}
 
-	return managed.ExternalObservation{ResourceExists: false}, nil
+	for _, item := range list {
+		if item.Key == targetKey {
+			return item, true, nil
+		}
+	}
+	return costCenterItem{}, false, nil
+}
+
+func (e *external) syncExternalName(ctx context.Context, cr *v1alpha1.CostCenter, key string) error {
+	if meta.GetExternalName(cr) != key {
+		meta.SetExternalName(cr, key)
+		return errors.Wrap(e.kube.Update(ctx, cr), "cannot update external-name annotation")
+	}
+	return nil
+}
+
+func populateStatus(cr *v1alpha1.CostCenter, item costCenterItem) {
+	cr.Status.AtProvider.Key = &item.Key
+	cr.Status.AtProvider.Value = &item.Value
+	cr.Status.AtProvider.ID = &item.Key
+	cr.SetConditions(xpv1.Available())
 }
 
 func (e *external) Create(ctx context.Context, mg resource.Managed) (managed.ExternalCreation, error) {

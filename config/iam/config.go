@@ -4,22 +4,24 @@ import (
 	"github.com/crossplane/upjet/v2/pkg/config"
 )
 
+const groupIAM = "iam"
+
 // Configure configures individual resources by adding custom ResourceConfigurators.
 func Configure(p *config.Provider) {
 	p.AddResourceConfigurator("dynatrace_iam_group", func(r *config.Resource) {
-		r.ShortGroup = "iam"
+		r.ShortGroup = groupIAM
 	})
 	p.AddResourceConfigurator("dynatrace_iam_permission", func(r *config.Resource) {
-		r.ShortGroup = "iam"
+		r.ShortGroup = groupIAM
 	})
 	p.AddResourceConfigurator("dynatrace_iam_policy", func(r *config.Resource) {
-		r.ShortGroup = "iam"
+		r.ShortGroup = groupIAM
 	})
 	p.AddResourceConfigurator("dynatrace_iam_policy_bindings", func(r *config.Resource) {
-		r.ShortGroup = "iam"
+		r.ShortGroup = groupIAM
 	})
 	p.AddResourceConfigurator("dynatrace_iam_policy_bindings_v2", func(r *config.Resource) {
-		r.ShortGroup = "iam"
+		r.ShortGroup = groupIAM
 		r.References["group"] = config.Reference{
 			Type: "Group",
 		}
@@ -31,12 +33,12 @@ func Configure(p *config.Provider) {
 		}
 	})
 	p.AddResourceConfigurator("dynatrace_iam_policy_boundary", func(r *config.Resource) {
-		r.ShortGroup = "iam"
+		r.ShortGroup = groupIAM
 	})
 	p.AddResourceConfigurator("dynatrace_iam_service_user", func(r *config.Resource) {
-		r.ShortGroup = "iam"
+		r.ShortGroup = groupIAM
 	})
 	p.AddResourceConfigurator("dynatrace_iam_user", func(r *config.Resource) {
-		r.ShortGroup = "iam"
+		r.ShortGroup = groupIAM
 	})
 }

@@ -36,96 +36,100 @@ func NewDynatraceImportInitializer(c client.Client, resourceName string) managed
 }
 
 func (i *DynatraceImportInitializer) Initialize(ctx context.Context, mg xpresource.Managed) error {
-	// If external name annotation is already populated, skip initialization
 	if meta.GetExternalName(mg) != "" {
 		return nil
 	}
 
-	// 1. Marshall resource to unstructured to inspect spec fields dynamically
+	u, err := toUnstructured(mg)
+	if err != nil {
+		return err
+	}
+
+	httpClient, accountID, err := i.buildHTTPClient(ctx, u)
+	if err != nil {
+		return err
+	}
+
+	return i.lookupAndSetExternalName(ctx, mg, u, httpClient, accountID)
+}
+
+func toUnstructured(mg xpresource.Managed) (*unstructured.Unstructured, error) {
 	raw, err := json.Marshal(mg)
 	if err != nil {
-		return errors.Wrap(err, "cannot marshal managed resource to JSON")
+		return nil, errors.Wrap(err, "cannot marshal managed resource to JSON")
 	}
 	u := &unstructured.Unstructured{}
 	if err := u.UnmarshalJSON(raw); err != nil {
-		return errors.Wrap(err, "cannot unmarshal JSON to unstructured")
+		return nil, errors.Wrap(err, "cannot unmarshal JSON to unstructured")
 	}
+	return u, nil
+}
 
-	// 2. Fetch credentials and client details from ProviderConfig
+func (i *DynatraceImportInitializer) buildHTTPClient(ctx context.Context, u *unstructured.Unstructured) (*http.Client, string, error) {
 	creds, err := i.getCredentials(ctx, u)
 	if err != nil {
-		return errors.Wrap(err, "cannot retrieve Dynatrace credentials for initializer")
+		return nil, "", errors.Wrap(err, "cannot retrieve Dynatrace credentials for initializer")
 	}
 
-	accountID := creds["iam_account_id"]
-	if accountID == "" {
-		accountID = creds["dt_account_id"]
-	}
-	clientID := creds["iam_client_id"]
-	if clientID == "" {
-		clientID = creds["dt_client_id"]
-	}
-	clientSecret := creds["iam_client_secret"]
-	if clientSecret == "" {
-		clientSecret = creds["dt_client_secret"]
-	}
+	accountID := firstNonEmpty(creds["iam_account_id"], creds["dt_account_id"])
+	clientID := firstNonEmpty(creds["iam_client_id"], creds["dt_client_id"])
+	clientSecret := firstNonEmpty(creds["iam_client_secret"], creds["dt_client_secret"])
 
 	if accountID == "" || clientID == "" || clientSecret == "" {
-		return errors.New("missing account_id, client_id, or client_secret in credentials secret")
+		return nil, "", errors.New("missing account_id, client_id, or client_secret in credentials secret")
 	}
 
-	// 3. Create OAuth2 authenticated HTTP client
 	conf := &clientcredentials.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
 		TokenURL:     "https://sso.dynatrace.com/sso/oauth2/token",
 	}
-	httpClient := conf.Client(ctx)
+	return conf.Client(ctx), accountID, nil
+}
 
-	// 4. Perform Lookup based on resource type
-	switch i.resourceName {
-	case "dynatrace_iam_group":
-		name := getSpecString(u, "forProvider", "name")
-		if name == "" {
-			name = getSpecString(u, "initProvider", "name")
-		}
-		if name == "" {
-			return nil
-		}
-		uuid, err := lookupGroup(ctx, httpClient, accountID, name)
-		if err != nil {
-			return err
-		}
-		if uuid != "" {
-			meta.SetExternalName(mg, uuid)
-		}
-
-	case "dynatrace_iam_policy_boundary":
-		name := getSpecString(u, "forProvider", "name")
-		if name == "" {
-			name = getSpecString(u, "initProvider", "name")
-		}
-		if name == "" {
-			return nil
-		}
-		uuid, err := lookupPolicyBoundary(ctx, httpClient, accountID, name)
-		if err != nil {
-			return err
-		}
-		if uuid != "" {
-			meta.SetExternalName(mg, uuid)
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
 		}
 	}
+	return ""
+}
 
+func (i *DynatraceImportInitializer) lookupAndSetExternalName(ctx context.Context, mg xpresource.Managed, u *unstructured.Unstructured, httpClient *http.Client, accountID string) error {
+	name := firstNonEmpty(
+		getSpecString(u, "forProvider", "name"),
+		getSpecString(u, "initProvider", "name"),
+	)
+	if name == "" {
+		return nil
+	}
+
+	var uuid string
+	var err error
+
+	switch i.resourceName {
+	case "dynatrace_iam_group":
+		uuid, err = lookupGroup(ctx, httpClient, accountID, name)
+	case "dynatrace_iam_policy_boundary":
+		uuid, err = lookupPolicyBoundary(ctx, httpClient, accountID, name)
+	}
+
+	if err != nil {
+		return err
+	}
+	if uuid != "" {
+		meta.SetExternalName(mg, uuid)
+	}
 	return nil
 }
 
 // getCredentials dynamically retrieves credentials secret reference from ProviderConfig
 func (i *DynatraceImportInitializer) getCredentials(ctx context.Context, u *unstructured.Unstructured) (map[string]string, error) {
-	pcName := getSpecString(u, "providerConfigRef", "name")
-	if pcName == "" {
-		pcName = getSpecString(u, "initProvider", "providerConfigRef", "name")
-	}
+	pcName := firstNonEmpty(
+		getSpecString(u, "providerConfigRef", "name"),
+		getSpecString(u, "initProvider", "providerConfigRef", "name"),
+	)
 	if pcName == "" {
 		return nil, errors.New("provider config reference name is nil")
 	}
@@ -147,31 +151,23 @@ func (i *DynatraceImportInitializer) getCredentials(ctx context.Context, u *unst
 		return nil, errors.Wrap(err, "cannot get provider config")
 	}
 
-	spec, ok := pc.Object["spec"].(map[string]any)
-	if !ok {
-		return nil, errors.New("provider config spec is missing")
-	}
+	return i.extractSecretCredentials(ctx, pc)
+}
 
-	credsSec, ok := spec["credentials"].(map[string]any)
-	if !ok {
-		return nil, errors.New("provider config credentials is missing")
-	}
-
-	source, _ := credsSec["source"].(string)
+func (i *DynatraceImportInitializer) extractSecretCredentials(ctx context.Context, pc *unstructured.Unstructured) (map[string]string, error) {
+	source, _, _ := unstructured.NestedString(pc.Object, "spec", "credentials", "source")
 	if source != "Secret" {
 		return nil, fmt.Errorf("unsupported credentials source: %s", source)
 	}
 
-	secretRef, ok := credsSec["secretRef"].(map[string]any)
-	if !ok {
-		return nil, errors.New("provider config credentials secretRef is missing")
-	}
-
-	secName, _ := secretRef["name"].(string)
-	secNamespace, _ := secretRef["namespace"].(string)
-	secKey, _ := secretRef["key"].(string)
+	secName, _, _ := unstructured.NestedString(pc.Object, "spec", "credentials", "secretRef", "name")
+	secNamespace, _, _ := unstructured.NestedString(pc.Object, "spec", "credentials", "secretRef", "namespace")
+	secKey, _, _ := unstructured.NestedString(pc.Object, "spec", "credentials", "secretRef", "key")
 	if secNamespace == "" {
 		secNamespace = "crossplane-system"
+	}
+	if secName == "" || secKey == "" {
+		return nil, errors.New("provider config credentials secretRef name or key is missing")
 	}
 
 	secret := &corev1.Secret{}
@@ -207,7 +203,7 @@ func lookupGroup(ctx context.Context, client *http.Client, accountID, name strin
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		b, _ := io.ReadAll(resp.Body)
@@ -235,48 +231,62 @@ func lookupGroup(ctx context.Context, client *http.Client, accountID, name strin
 func lookupPolicyBoundary(ctx context.Context, client *http.Client, accountID, name string) (string, error) {
 	page := 1
 	for {
-		url := fmt.Sprintf("https://api.dynatrace.com/iam/v1/repo/account/%s/boundaries?page=%d&page-size=100", accountID, page)
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-		resp, err := client.Do(req)
+		foundUUID, hasMore, err := fetchBoundaryPage(ctx, client, accountID, name, page)
 		if err != nil {
 			return "", err
 		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			b, _ := io.ReadAll(resp.Body)
-			return "", fmt.Errorf("unexpected status code %d querying policy boundaries: %s", resp.StatusCode, string(b))
+		if foundUUID != "" {
+			return foundUUID, nil
 		}
-
-		var response map[string]any
-		if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
-			return "", err
-		}
-
-		var items []any
-		for _, key := range []string{"policyBoundaryOverviewList", "boundaries", "items", "content"} {
-			if rawItems, ok := response[key].([]any); ok {
-				items = rawItems
-				break
-			}
-		}
-
-		if len(items) == 0 {
+		if !hasMore {
 			break
-		}
-
-		for _, item := range items {
-			itemMap, ok := item.(map[string]any)
-			if !ok {
-				continue
-			}
-			bName, _ := itemMap["name"].(string)
-			bUUID, _ := itemMap["uuid"].(string)
-			if bName == name && bUUID != "" {
-				return bUUID, nil
-			}
 		}
 		page++
 	}
 	return "", nil
+}
+
+func fetchBoundaryPage(ctx context.Context, client *http.Client, accountID, name string, page int) (string, bool, error) {
+	url := fmt.Sprintf("https://api.dynatrace.com/iam/v1/repo/account/%s/boundaries?page=%d&page-size=100", accountID, page)
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", false, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return "", false, fmt.Errorf("unexpected status code %d querying policy boundaries: %s", resp.StatusCode, string(b))
+	}
+
+	var response map[string]any
+	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
+		return "", false, err
+	}
+
+	items := extractBoundaryItems(response)
+	if len(items) == 0 {
+		return "", false, nil
+	}
+
+	for _, item := range items {
+		if itemMap, ok := item.(map[string]any); ok {
+			bName, _ := itemMap["name"].(string)
+			bUUID, _ := itemMap["uuid"].(string)
+			if bName == name && bUUID != "" {
+				return bUUID, true, nil
+			}
+		}
+	}
+	return "", true, nil
+}
+
+func extractBoundaryItems(response map[string]any) []any {
+	for _, key := range []string{"policyBoundaryOverviewList", "boundaries", "items", "content"} {
+		if rawItems, ok := response[key].([]any); ok {
+			return rawItems
+		}
+	}
+	return nil
 }
